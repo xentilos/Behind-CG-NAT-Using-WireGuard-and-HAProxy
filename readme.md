@@ -26,6 +26,21 @@ Internet --> VPS --> WireGuard Tunnel --> pfSense --> Proxmox Mail Gateway
 
 ### WireGuard Configuration
 
+First we need to enable IP Forwarding. IP forwarding is the ability for an operating system to accept incoming network packets on one interface, recognize that it is not meant for the system itself, but that it should be passed on to another network. Edit the file `/etc/sysctl.conf` and change and uncomment to the line that says `net.ipv4.ip_forward=1`
+
+Now reboot or run `sysctl -p` to activate the changes.
+
+Install wireguard and iptables
+`apt install iptables wireguard-tools -y`
+
+Go to to the Wireguard config cd `/etc/wireguard` and then run the following command to generate the public and private keys for the server.
+`umask 077; wg genkey | tee privatekey | wg pubkey > publickey`
+
+The run `cat privatekey` and copy it so we can put it in to the server config file.
+
+Create the `/etc/wireguard/wg0.conf`
+`nano /etc/wireguard/wg0.conf`
+
 Below is the WireGuard configuration setup for routing OpenVPN traffic through the secure tunnel at the default port 1194:
 
 ```ini
@@ -153,6 +168,61 @@ This setup involves:
 2. **Copying the existing configuration**: By copying the original `main.cf.in` to the custom directory, any changes are preserved.
 3. **Modifying the configuration**: Add the necessary configuration for HAProxy by including the original configuration and appending the required Proxy Protocol settings.
 4. **Syncing the configuration**: Apply changes and restart the necessary services.
+
+### Setting Up WireGuard Tunnel on pfSense
+
+To establish a WireGuard tunnel on pfSense, follow these steps:
+
+1. **Install WireGuard Package**:
+   - Navigate to `System > Package Manager > Available Packages`.
+   - Search for "WireGuard" and install the package.
+
+2. **Create a WireGuard Tunnel**:
+   - Go to `VPN > WireGuard > Tunnels` and click on `Add Tunnel`.
+   - Generate new keys and copy the pfSense public key into `/etc/wireguard/wg0.conf` on the VPS Host with Public IP.
+   - Configure the tunnel:
+     - **Enabled**: Check this box.
+     - **Tunnel Address**: Set this to the internal IP address range, e.g., `10.69.69.5/24`.
+     - **Local Private Key**: Paste the private key generated for pfSense.
+     - **Local Port**: Set the port to `51820`.
+
+3. **Create a Peer for the Tunnel**:
+   - Go to `VPN > WireGuard > Peers` and click on `Add Peer`.
+   - Configure the peer:
+     - **Public Key**: Paste the VPS server’s public key from `/etc/wireguard/publickey`.
+     - **Endpoint**: Set the endpoint to the VPS server's public IP.
+     - **Allowed IPs**: Set this to `10.69.69.1/32`.
+     - **Keep Alive**: Set a keep-alive time (e.g., 25 seconds) to maintain the connection through CG-NAT.
+
+4. **Create a WireGuard Interface**:
+   - Go to `Interfaces > Assignments`.
+   - Add the new WireGuard interface and configure it:
+     - **IPv4 Configuration Type**: Static IP.
+     - **Description**: `Wireguard_to_VPS`.
+     - **Static IP**: Set this to `10.69.69.5/24`.
+     - **MTU and MSS**: Set both to `1420`.
+
+5. **Configure Routing**:
+   - Go to `System > Routing`.
+   - Ensure the default gateway is set to `WAN` (or a specific gateway group if you have one configured).
+   - Add a gateway for the WireGuard interface:
+     - **Interface**: Choose the WireGuard interface.
+     - **Gateway IP**: Set this to `10.69.69.5`.
+     - **Monitor IP**: Set this to `10.69.69.1` or disable monitoring.
+    - Go back to wireguard interface and setup IPv4 Upstream gateway to `Wireguard_to_VPS`
+
+6. **Create Port Forwarding Rule**:
+   - Navigate to `Firewall > NAT > Port Forward`.
+   - Add a new port forward rule to direct traffic to your internal server:
+     - **Interface**: Wireguard_to_VPS.
+     - **Protocol**: TCP.
+     - **Destination Port Range**: 25.
+     - **Redirect Target IP**: Internal server IP (e.g., `10.69.69.5`).
+     - **Redirect Target Port**: 25.
+   - This will also create the necessary firewall rules under the interface.
+7. **OpenVPN**:
+   - configure OpenVPN to use `Wireguard_to_VPS` interface
+
 
 ### Ansible Playbook for Automation
 
