@@ -1,0 +1,74 @@
+---
+- name: Setup WireGuard on Ubuntu 24.04 LTS
+  hosts: all
+  become: yes
+
+  vars:
+    wg_private_key: "your_wireguard_private_key"
+    new_dc_public_key: "new_dc_public_key"
+    haproxy_user_id: 80
+    haproxy_group_id: 80
+    haproxy_chroot_dir: "/tmp/haproxy_chroot"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install WireGuard
+      apt:
+        name:
+          - wireguard
+          - wireguard-tools
+          - iptables
+          - haproxy
+        state: present
+
+    - name: Configure WireGuard
+      template:
+        src: wireguard.conf.j2
+        dest: /etc/wireguard/wg0.conf
+        mode: '0600'
+        owner: root
+        group: root
+
+    - name: Enable and start WireGuard
+      command: wg-quick up wg0
+      register: wg_up
+
+    - name: Ensure WireGuard is enabled on boot
+      systemd:
+        name: wg-quick@wg0
+        enabled: yes
+        state: started
+
+    - name: Create HAProxy chroot directory
+      file:
+        path: "{{ haproxy_chroot_dir }}"
+        state: directory
+        owner: "{{ haproxy_user_id }}"
+        group: "{{ haproxy_group_id }}"
+        mode: '0755'
+
+    - name: Ensure HAProxy is enabled and started
+      systemd:
+        name: haproxy
+        enabled: yes
+        state: started
+
+    - name: Allow incoming traffic on port 25 (SMTP) via iptables
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: 25
+        jump: ACCEPT
+        comment: "Allow incoming SMTP traffic"
+
+    - name: Save iptables rules
+      command: /sbin/iptables-save
+      register: iptables_save
+      
+    - name: Restart HAProxy to apply changes
+      systemd:
+        name: haproxy
+        state: restarted
