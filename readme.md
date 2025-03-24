@@ -149,11 +149,10 @@ pmgconfig sync --restart 1
 ```
 This setup involves:
 
-Creating a custom templates directory: This prevents overwriting the default configuration files during updates.
-Copying the existing configuration: By copying the original main.cf.in to the custom directory, any changes are preserved.
-Modifying the configuration: Add the necessary configuration for HAProxy by including the original configuration and appending the required Proxy Protocol settings.
-Syncing the configuration: Apply changes and restart the necessary services.
-
+1. **Creating a custom templates directory**: This prevents overwriting the default configuration files during updates.
+2. **Copying the existing configuration**: By copying the original `main.cf.in` to the custom directory, any changes are preserved.
+3. **Modifying the configuration**: Add the necessary configuration for HAProxy by including the original configuration and appending the required Proxy Protocol settings.
+4. **Syncing the configuration**: Apply changes and restart the necessary services.
 
 ### Ansible Playbook for Automation
 
