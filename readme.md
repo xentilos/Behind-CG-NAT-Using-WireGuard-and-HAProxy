@@ -149,7 +149,7 @@ To streamline the deployment, I used an Ansible playbook:
 
   vars:
     wg_private_key: "<your_wireguard_private_key>"
-    home_public_key: "<new_dc_public_key>"
+    new_dc_public_key: "<new_dc_public_key>"
     haproxy_user_id: 80
     haproxy_group_id: 80
     haproxy_chroot_dir: "/tmp/haproxy_chroot"
