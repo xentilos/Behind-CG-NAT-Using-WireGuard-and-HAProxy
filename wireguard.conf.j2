@@ -1,0 +1,21 @@
+[Interface]
+PrivateKey = {{ wg_private_key }}
+Address = 10.69.69.1/24
+ListenPort = 51820
+
+# OpenVPN certificate-based connection
+PostUp = iptables -t nat -A PREROUTING -p udp --dport 1194 -j DNAT --to-destination 10.69.69.5:1194
+PostUp = iptables -t nat -A POSTROUTING -p udp -d 10.69.69.5 --dport 1194 -j SNAT --to-source 10.69.69.1
+PostUp = iptables -A FORWARD -p udp -d 10.69.69.5 --dport 1194 -j ACCEPT
+
+# Cleanup rules on interface down
+PostDown = iptables -t nat -D PREROUTING -p udp --dport 1194 -j DNAT --to-destination 10.69.69.5:1194
+PostDown = iptables -t nat -D POSTROUTING -p udp -d 10.69.69.5 --dport 1194 -j SNAT --to-source 10.69.69.1
+PostDown = iptables -D FORWARD -p udp -d 10.69.69.5 --dport 1194 -j ACCEPT
+
+
+[Peer]
+# pfsense - home
+PublicKey = {{ new_dc_public_key }}
+AllowedIPs = 10.69.69.5/32
+PersistentKeepalive = 25
