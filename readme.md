@@ -137,6 +137,24 @@ backend emailPMG
 - **backend section**: 
   - `server pmgmailserver 10.69.69.5:25 id 101 send-proxy`: Defines the backend server where SMTP traffic will be sent. The `send-proxy` option is used to send the original client’s IP address to the backend server.
 
+### Additional Setup for Proxmox Mail Gateway
+To ensure that the Proxmox Mail Gateway can correctly handle the traffic being proxied by HAProxy, additional setup is required:
+```sh
+mkdir /etc/pmg/templates
+cp /var/lib/pmg/templates/main.cf.in /etc/pmg/templates/original_main.cf.in
+echo '[% INCLUDE original_main.cf.in %]'            >  /etc/pmg/templates/main.cf.in
+echo '# find me in /etc/pmg/templates/main.cf.in'   >> /etc/pmg/templates/main.cf.in
+echo 'postscreen_upstream_proxy_protocol = haproxy' >> /etc/pmg/templates/main.cf.in
+pmgconfig sync --restart 1
+```
+This setup involves:
+
+Creating a custom templates directory: This prevents overwriting the default configuration files during updates.
+Copying the existing configuration: By copying the original main.cf.in to the custom directory, any changes are preserved.
+Modifying the configuration: Add the necessary configuration for HAProxy by including the original configuration and appending the required Proxy Protocol settings.
+Syncing the configuration: Apply changes and restart the necessary services.
+
+
 ### Ansible Playbook for Automation
 
 To streamline the deployment, I used an Ansible playbook:
